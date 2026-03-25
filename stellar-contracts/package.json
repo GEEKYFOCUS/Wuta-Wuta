@@ -5,8 +5,8 @@
   "main": "src/index.js",
   "scripts": {
     "test": "jest",
-    "build": "soroban compile",
-    "build:wutawuta": "soroban compile contracts/WutaWutaMarketplace.rs --target-dir target/wasm32-unknown-unknown/release",
+    "build": "node init && soroban compile",
+    "build:wutawuta": "node init && soroban compile contracts/WutaWutaMarketplace.rs --target-dir target/wasm32-unknown-unknown/release",
     "deploy": "node scripts/deploy.js",
     "deploy:testnet": "node scripts/deploy.js deploy testnet",
     "deploy:mainnet": "node scripts/deploy.js deploy mainnet",
