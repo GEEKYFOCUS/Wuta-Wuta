@@ -63,52 +63,47 @@ impl NFTMarketplace {
         
         // Listing event
         env.events().publish(
-            (Symbol::new(&env, "list"),),
+            (Symbol::new(&env, "list"),
             (seller, token_id, price, duration)
         );
     }
 
     pub fn buy_nft(env: Env, buyer: Address, token_id: u64, amount: i128) {
-        let mut listings = Self::get_listings(env.clone());
+        let listings = Self::get_listings(env);
         let mut listing_index = None;
         
         // Find active listing
         for (i, listing) in listings.iter().enumerate() {
             if listing.token_id == token_id && listing.active && 
                env.ledger().timestamp() < listing.expires {
-                if amount < listing.price {
-                    panic!("Insufficient payment");
-                }
+                require!(amount >= listing.price, "Insufficient payment");
                 listing_index = Some(i as u32);
                 break;
             }
         }
 
-        if listing_index.is_none() {
-            panic!("Listing not found or expired");
-        }
+        require!(listing_index.is_some(), "Listing not found or expired");
         
-        let mut listing = listings.get(listing_index.unwrap()).unwrap();
-        let marketplace_fee = Self::get_marketplace_fee(env.clone());
-        let _treasury = Self::get_treasury(env.clone());
+        let listing = &listings[listing_index.unwrap() as usize];
+        let marketplace_fee = Self::get_marketplace_fee(env);
+        let treasury = Self::get_treasury(env);
         
         // Calculate fees
         let fee_amount = (listing.price * marketplace_fee as i128) / 10000;
-        let _seller_amount = listing.price - fee_amount;
+        let seller_amount = listing.price - fee_amount;
         
         // Process payment (in real implementation, this would handle token transfers)
         
         // Mark listing as inactive
-        listing.active = false;
-        listings.set(listing_index.unwrap(), listing.clone());
-        env.storage().instance().set(&Symbol::new(&env, "listings"), &listings);
+        listings[listing_index.unwrap() as usize].active = false;
+        env.storage().instance().set(&listings);
         
         // Transfer fee to treasury
         // In real implementation, transfer tokens to treasury
         
         // Sale event
         env.events().publish(
-            (Symbol::new(&env, "sale"),),
+            (Symbol::new(&env, "sale"),
             (buyer, listing.seller, token_id, listing.price, fee_amount)
         );
     }
@@ -122,38 +117,32 @@ impl NFTMarketplace {
             active: true,
         };
 
-        let mut offers = Self::get_offers(env.clone());
-        offers.push_back(offer);
+        let mut offers = Self::get_offers(env);
+        offers.push(offer);
 
-        env.storage().instance().set(&Symbol::new(&env, "offers"), &offers);
+        env.storage().instance().set(&offers);
         
         // Offer event
         env.events().publish(
-            (Symbol::new(&env, "offer"),),
+            (Symbol::new(&env, "offer"),
             (buyer, token_id, amount, duration)
         );
     }
 
     pub fn accept_offer(env: Env, seller: Address, token_id: u64, offer_index: u32) {
-        let mut offers = Self::get_offers(env.clone());
-        if offer_index >= offers.len() {
-            panic!("Invalid offer index");
-        }
+        let offers = Self::get_offers(env);
+        require!(offer_index < offers.len() as u32, "Invalid offer index");
         
-        let offer = offers.get(offer_index).unwrap();
-        if !offer.active || offer.token_id != token_id {
-            panic!("Offer not valid");
-        }
-        if env.ledger().timestamp() >= offer.expires {
-            panic!("Offer expired");
-        }
+        let offer = &offers[offer_index as usize];
+        require!(offer.active && offer.token_id == token_id, "Offer not valid");
+        require!(env.ledger().timestamp() < offer.expires, "Offer expired");
         
-        let marketplace_fee = Self::get_marketplace_fee(env.clone());
-        let _treasury = Self::get_treasury(env.clone());
+        let marketplace_fee = Self::get_marketplace_fee(env);
+        let treasury = Self::get_treasury(env);
         
         // Calculate fees
         let fee_amount = (offer.amount * marketplace_fee as i128) / 10000;
-        let _seller_amount = offer.amount - fee_amount;
+        let seller_amount = offer.amount - fee_amount;
         
         // Process transaction
         // Transfer NFT to buyer
@@ -162,50 +151,44 @@ impl NFTMarketplace {
         
         // Mark offers as inactive
         let mut updated_offers = offers;
-        for i in 0..updated_offers.len() {
-            let mut off = updated_offers.get(i).unwrap();
-            if off.token_id == token_id {
-                off.active = false;
-                updated_offers.set(i, off);
+        for offer in updated_offers.iter_mut() {
+            if offer.token_id == token_id {
+                offer.active = false;
             }
         }
-        env.storage().instance().set(&Symbol::new(&env, "offers"), &updated_offers);
+        env.storage().instance().set(&updated_offers);
         
         // Sale event
         env.events().publish(
-            (Symbol::new(&env, "offer_accepted"),),
+            (Symbol::new(&env, "offer_accepted"),
             (offer.buyer, seller, token_id, offer.amount, fee_amount)
         );
     }
 
     pub fn cancel_listing(env: Env, seller: Address, token_id: u64) {
-        let mut listings = Self::get_listings(env.clone());
+        let mut listings = Self::get_listings(env);
         
-        for i in 0..listings.len() {
-            let mut listing = listings.get(i).unwrap();
+        for listing in listings.iter_mut() {
             if listing.seller == seller && listing.token_id == token_id {
                 listing.active = false;
-                listings.set(i, listing);
                 break;
             }
         }
         
-        env.storage().instance().set(&Symbol::new(&env, "listings"), &listings);
+        env.storage().instance().set(&listings);
         
         // Cancel event
         env.events().publish(
-            (Symbol::new(&env, "listing_cancelled"),),
+            (Symbol::new(&env, "listing_cancelled"),
             (seller, token_id)
         );
     }
 
     pub fn update_marketplace_fee(env: Env, new_fee: u32) {
-        let admin = Self::get_admin(env.clone());
+        let admin = Self::get_admin(env);
         admin.require_auth();
-        if new_fee > 1000 {
-            panic!("Fee too high"); // Max 10%
-        }
-        env.storage().instance().set(&Symbol::new(&env, "marketplace_fee"), &new_fee);
+        require!(new_fee <= 1000, "Fee too high"); // Max 10%
+        env.storage().instance().set(&new_fee);
     }
 
     // Helper functions
