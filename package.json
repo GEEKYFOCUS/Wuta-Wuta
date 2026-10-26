@@ -5,10 +5,10 @@
   "main": "src/App.js",
   "private": true,
   "scripts": {
-    "start": "set SKIP_PREFLIGHT_CHECK=true && react-scripts start",
-    "start:backend": "node server/index.js",
-    "dev": "concurrently \"npm run start\" \"npm run start:backend\"",
-    "build": "react-scripts build",
+    "start": "node init && set SKIP_PREFLIGHT_CHECK=true && react-scripts start",
+    "start:backend": "node init && node server/index.js",
+    "dev": "node init && concurrently \"npm run start\" \"npm run start:backend\"",
+    "build": "node init && react-scripts build",
     "test": "react-scripts test -- --coverage --watchAll=false",
     "test:e2e": "echo 'E2E tests not configured yet' && exit 0",
     "test:load": "echo 'Load tests not configured yet' && exit 0",
@@ -42,7 +42,6 @@
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^3.0.0",
-    "@openzeppelin/contracts": "^4.9.6",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^13.5.0",
